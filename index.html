@@ -3,428 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>체스 타이머</title>
+    <title>Studio J - 로컬 센서 Cam</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        :root {
-            --bg-color: #F8F9FA;
-            --card-white: #FFFFFF;
-            --card-black: #2C3E50;
-            --accent-blue: #3498DB;
-            --accent-green: #2ECC71;
-            --accent-red: #E74C3C;
-            --text-gray: #8E8E93;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Pretendard', -apple-system, sans-serif;
-            user-select: none;
-        }
-
         body {
-            background-color: var(--bg-color);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
             overflow: hidden;
-        }
-
-        /* 설정 영역 */
-        #setup-container {
-            background-color: var(--card-white);
-            padding: 15px 30px;
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            z-index: 10;
+            height: 100vh;
+            transition: background-color 0.5s ease;
         }
-
-        .preset-btn {
-            background-color: var(--bg-color);
-            border: 1px solid #D1D1D6;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .preset-btn:hover {
-            background-color: #E5E5EA;
-        }
-
-        .custom-time-input {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .custom-time-input input {
-            width: 50px;
-            padding: 6px;
-            border: 1px solid #D1D1D6;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        .action-btn {
-            background-color: var(--card-black);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
+        #welcome-message {
+            font-size: 3rem;
             font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
+            text-align: center;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.5s ease;
+            color: #00ffcc;
+            text-shadow: 0 0 20px rgba(0,255,204,0.6);
         }
-
-        .action-btn:hover {
-            background-color: #34495E;
-        }
-
-        /* 타이머 메인 영역 */
-        #timer-container {
-            flex: 1;
-            display: flex;
-            width: 100%;
-        }
-
-        .timer-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
-        /* 플레이어 1 (백) */
-        #player1 {
-            background-color: var(--card-white);
-            color: #000000;
-        }
-
-        /* 플레이어 2 (흑) */
-        #player2 {
-            background-color: var(--card-black);
-            color: #FFFFFF;
-        }
-
-        .time-display {
-            font-size: 12vw;
-            font-weight: 800;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -2px;
-            z-index: 2;
-            transition: color 0.3s;
-        }
-
-        .side-label {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            opacity: 0.6;
-            z-index: 2;
-            transition: color 0.3s;
-        }
-
-        /* 흐르는 배경 애니메이션 효과 (활성화 상태) */
-        .timer-box.active::before {
-            content: '';
+        /* 감지용 숨김 비디오 및 캔버스 */
+        #video, #canvas {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.08;
-            z-index: 1;
-            background: linear-gradient(270deg, var(--accent-blue), transparent, var(--accent-blue));
-            background-size: 400% 400%;
-            animation: gradientMove 4s ease infinite;
-        }
-        #player2.active::before {
-            opacity: 0.15;
-        }
-
-        /* [개선] 시간 부족 위기 상태 애니메이션 (30초 미만) */
-        .timer-box.panic::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 1;
-            background: var(--accent-red);
-            animation: pulseWarn 1.2s infinite;
-        }
-        
-        /* 백색 진영이 빨간 배경(panic)일 때 글씨가 묻히지 않도록 강제 리스타일링 */
-        #player1.panic {
-            color: #FFFFFF !important;
-        }
-        #player1.panic .time-display, #player1.panic .side-label {
-            color: #FFFFFF !important;
-            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* 가시성 확보용 섀도우 */
-        }
-
-        /* 경기 시작 전 대기 상태 스타일 */
-        .timer-box.ready {
-            opacity: 0.85;
-        }
-
-        /* 비활성화 상태 톤다운 */
-        .timer-box.disabled {
-            opacity: 0.2;
+            top: 0;
+            left: 0;
+            opacity: 0;
             pointer-events: none;
-        }
-
-        /* 애니메이션 키프레임 */
-        @keyframes gradientMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        @keyframes pulseWarn {
-            0% { opacity: 0.2; }
-            50% { opacity: 0.4; }
-            100% { opacity: 0.2; }
-        }
-
-        /* 안내 문구 */
-        #space-tip {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            z-index: 5;
-            pointer-events: none;
-            backdrop-filter: blur(4px);
+            width: 160px;
+            height: 120px;
         }
     </style>
 </head>
 <body>
 
-    <div id="setup-container">
-        <button class="preset-btn" onclick="setPreset(1)">1분</button>
-        <button class="preset-btn" onclick="setPreset(3)">3분</button>
-        <button class="preset-btn" onclick="setPreset(5)">5분</button>
-        <button class="preset-btn" onclick="setPreset(10)">10분</button>
-        
-        <div class="custom-time-input">
-            <input type="number" id="input-min" value="5" min="0" max="99">
-            <span>분</span>
-            <input type="number" id="input-sec" value="0" min="0" max="59">
-            <span>초</span>
-        </div>
-
-        <button class="action-btn" id="btn-apply" onclick="applyCustomTime()">적용</button>
-        
-        <button class="action-btn" id="btn-start" onclick="startMatch()" style="background-color: var(--accent-green);">경기 시작</button>
-        
-        <button class="action-btn" id="btn-pause" onclick="togglePause()" style="background-color: var(--accent-blue); display: none;">일시정지</button>
-        <button class="action-btn" id="btn-reset" onclick="resetTimer()" style="background-color: #7f8c8d;">리셋</button>
-    </div>
-
-    <div id="timer-container">
-        <div id="player1" class="timer-box ready" onclick="switchTurn(1)">
-            <div class="side-label">WHITE (백)</div>
-            <div class="time-display" id="display-p1">05:00</div>
-        </div>
-        <div id="player2" class="timer-box ready" onclick="switchTurn(2)">
-            <div class="side-label">BLACK (흑)</div>
-            <div class="time-display" id="display-p2">05:00</div>
-        </div>
-    </div>
-
-    <div id="space-tip">상단의 [경기 시작]을 누르거나 스페이스바를 누르면 백(WHITE)부터 시작합니다</div>
+    <div id="welcome-message">Studio J에 오신 것을 환영합니다!</div>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
 
     <script>
-        let initialTime = 300; 
-        let timeP1 = initialTime;
-        let timeP2 = initialTime;
-        let activePlayer = 0;  // 0: 대기(경기시작 전), 1: 백 턴, 2: 흑 턴
-        let timerInterval = null;
-        let isPaused = false;
-        let isMatchStarted = false; // 경기 시작 여부 플래그
+        // 🔴 중요: 네 파이어베이스 프로젝트 구성 정보로 변경해줘!
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "studio-j-cam.firebaseapp.com",
+            databaseURL: "https://studio-j-cam-default-rtdb.firebaseio.com",
+            projectId: "studio-j-cam",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-        const p1Box = document.getElementById('player1');
-        const p2Box = document.getElementById('player2');
-        const p1Display = document.getElementById('display-p1');
-        const p2Display = document.getElementById('display-p2');
-        const startBtn = document.getElementById('btn-start');
-        const pauseBtn = document.getElementById('btn-pause');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const welcomeMessage = document.getElementById('welcome-message');
 
-        function formatTime(seconds) {
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toString().padStart(2, '0');
-            return `${m}:${s}`;
-        }
+        let lastFrameData = null;
+        let isDetected = false;
 
-        function updateDisplays() {
-            p1Display.textContent = formatTime(timeP1);
-            p2Display.textContent = formatTime(timeP2);
+        // 720p 화질 요청하되, 로컬 감지 연산 속도를 위해 캔버스는 작게 씀
+        navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+            .then(stream => {
+                video.srcObject = stream;
+                setInterval(detectMotion, 300); // 0.3초마다 움직임 체크
+            })
+            .catch(err => alert("카메라 권한이 필요합니다: " + err));
 
-            if (timeP1 <= 30 && timeP1 > 0 && activePlayer === 1) p1Box.classList.add('panic');
-            else p1Box.classList.remove('panic');
+        function detectMotion() {
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-            if (timeP2 <= 30 && timeP2 > 0 && activePlayer === 2) p2Box.classList.add('panic');
-            else p2Box.classList.remove('panic');
-        }
-
-        function setPreset(minutes) {
-            if(isMatchStarted) return; // 경기 중엔 프리셋 차단
-            document.getElementById('input-min').value = minutes;
-            document.getElementById('input-sec').value = 0;
-            applyCustomTime();
-        }
-
-        function applyCustomTime() {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            activePlayer = 0;
-            isPaused = false;
-            isMatchStarted = false;
-
-            const min = parseInt(document.getElementById('input-min').value) || 0;
-            const sec = parseInt(document.getElementById('input-sec').value) || 0;
+            // 캔버스 크기를 감지용 세팅으로 맞춤
+            canvas.width = 160;
+            canvas.height = 120;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            initialTime = (min * 60) + sec;
-            if (initialTime <= 0) initialTime = 10; 
+            const frameData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-            timeP1 = initialTime;
-            timeP2 = initialTime;
-
-            p1Box.className = 'timer-box ready';
-            p2Box.className = 'timer-box ready';
-            
-            startBtn.style.display = 'inline-block';
-            pauseBtn.style.display = 'none';
-            pauseBtn.textContent = "일시정지";
-            pauseBtn.style.backgroundColor = 'var(--accent-blue)';
-            
-            document.getElementById('space-tip').textContent = "상단의 [경기 시작]을 누르거나 스페이스바를 누르면 백(WHITE)부터 시작합니다";
-            updateDisplays();
-        }
-
-        // [신설] 명시적 경기 시작 시스템 (무조건 백부터 스타트)
-        function startMatch() {
-            if (isMatchStarted) return;
-            isMatchStarted = true;
-            activePlayer = 1; // 무조건 WHITE 선공
-            
-            startBtn.style.display = 'none';
-            pauseBtn.style.display = 'inline-block';
-            document.getElementById('space-tip').textContent = "스페이스바(Space) 또는 화면을 클릭해 턴을 전환하세요";
-            
-            startTick();
-        }
-
-        function switchTurn(clickedPlayer) {
-            if (!isMatchStarted || isPaused || timeP1 <= 0 || timeP2 <= 0) return;
-
-            // 현재 자기 턴일 때 상대 진영 카드를 누르거나 자기 카드를 눌러서 턴 패스 가능
-            if (clickedPlayer === activePlayer) {
-                activePlayer = activePlayer === 1 ? 2 : 1;
-                startTick();
-            }
-        }
-
-        function startTick() {
-            if (timerInterval) clearInterval(timerInterval);
-            
-            if (activePlayer === 1) {
-                p1Box.className = 'timer-box active';
-                p2Box.className = 'timer-box disabled';
-            } else if (activePlayer === 2) {
-                p2Box.className = 'timer-box active';
-                p1Box.className = 'timer-box disabled';
-            }
-
-            timerInterval = setInterval(() => {
-                if (isPaused) return;
-
-                if (activePlayer === 1) {
-                    timeP1--;
-                    if (timeP1 <= 0) {
-                        timeP1 = 0;
-                        handleTimeout(1);
-                    }
-                } else if (activePlayer === 2) {
-                    timeP2--;
-                    if (timeP2 <= 0) {
-                        timeP2 = 0;
-                        handleTimeout(2);
+            if (lastFrameData) {
+                let changedPixels = 0;
+                // 픽셀 변화량 계산
+                for (let i = 0; i < frameData.length; i += 4) {
+                    const rDiff = Math.abs(frameData[i] - lastFrameData[i]);
+                    const gDiff = Math.abs(frameData[i+1] - lastFrameData[i+1]);
+                    const bDiff = Math.abs(frameData[i+2] - lastFrameData[i+2]);
+                    
+                    if (rDiff + gDiff + bDiff > 60) { // 픽셀 색상 차이 기준치
+                        changedPixels++;
                     }
                 }
-                updateDisplays();
-            }, 1000);
-        }
 
-        function handleTimeout(loser) {
-            clearInterval(timerInterval);
-            p1Box.className = 'timer-box disabled';
-            p2Box.className = 'timer-box disabled';
-            
-            if (loser === 1) {
-                p1Box.classList.remove('disabled');
-                p1Box.style.backgroundColor = '#34495E';
-                p1Display.textContent = "LOSE";
-                p1Display.style.color = 'var(--accent-red)';
-            } else {
-                p2Box.classList.remove('disabled');
-                p2Box.style.backgroundColor = '#1A252F';
-                p2Display.textContent = "LOSE";
-                p2Display.style.color = 'var(--accent-red)';
-            }
-        }
-
-        function togglePause() {
-            if (!isMatchStarted) return;
-            isPaused = !isPaused;
-            
-            if (isPaused) {
-                pauseBtn.textContent = "재개하기";
-                pauseBtn.style.backgroundColor = 'var(--accent-red)';
-                p1Box.classList.add('disabled');
-                p2Box.classList.add('disabled');
-            } else {
-                pauseBtn.textContent = "일시정지";
-                pauseBtn.style.backgroundColor = 'var(--accent-blue)';
-                startTick();
-            }
-        }
-
-        function resetTimer() {
-            applyCustomTime();
-            p1Box.style.backgroundColor = '';
-            p2Box.style.backgroundColor = '';
-            p1Display.style.color = '';
-            p2Display.style.color = '';
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault(); 
-                
-                if (!isMatchStarted) {
-                    startMatch(); // 아직 시작 전이면 스페이스바로 경기 시작 가능
-                } else {
-                    switchTurn(activePlayer); // 진행 중이면 턴 스위칭
+                // 전체 픽셀 중 일정 비율 이상 변하면 움직임으로 인식
+                if (changedPixels > (canvas.width * canvas.height) * 0.08 && !isDetected) {
+                    triggerWelcome();
                 }
             }
-        });
+            lastFrameData = frameData;
+        }
 
-        updateDisplays();
+        function triggerWelcome() {
+            isDetected = true;
+            console.log("로컬 움직임 감지됨!");
+
+            // 1. 화면 켜고 환영 문구 띄우기
+            document.body.style.backgroundColor = "#121212";
+            welcomeMessage.style.opacity = "1";
+            welcomeMessage.style.transform = "scale(1)";
+
+            // 2. 파이어베이스에 단순 텍스트 로그 및 시간만 쏘기 (영상 X)
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            
+            database.ref('last_detect').set(timeString);
+            // 로그 리스트에도 누적 기록 추가
+            database.ref('logs').push({
+                event: "움직임 감지 (침입 발생 가능)",
+                time: now.toLocaleString()
+            });
+
+            // 3초 후 다시 화면 어둡게 대기 상태로 전환
+            setTimeout(() => {
+                document.body.style.backgroundColor = "#000000";
+                welcomeMessage.style.opacity = "0";
+                welcomeMessage.style.transform = "scale(0.8)";
+                isDetected = false;
+            }, 3500);
+        }
     </script>
 </body>
 </html>
