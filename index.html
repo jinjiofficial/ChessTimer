@@ -18,6 +18,7 @@
             align-items: center;
             height: 100vh;
             transition: background-color 0.5s ease;
+            cursor: pointer; /* 터치할 수 있음을 표시 */
         }
         #welcome-message {
             font-size: 3rem;
@@ -29,7 +30,6 @@
             color: #00ffcc;
             text-shadow: 0 0 20px rgba(0,255,204,0.6);
         }
-        /* 감지용 숨김 비디오 및 캔버스 */
         #video, #canvas {
             position: absolute;
             top: 0;
@@ -39,17 +39,25 @@
             width: 160px;
             height: 120px;
         }
+        /* 상단에 전체화면 안내 문구 잠시 띄우기 */
+        #fs-guide {
+            position: absolute;
+            top: 20px;
+            font-size: 14px;
+            color: #555;
+            transition: opacity 1s;
+        }
     </style>
 </head>
-<body>
+<body onclick="openFullscreen();">
 
+    <div id="fs-guide">화면을 아무 곳이나 터치하면 전체화면이 됩니다.</div>
     <div id="welcome-message">Studio J에 오신 것을 환영합니다!</div>
     
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
     <script>
-        // 🔴 중요: YOUR_ 변수들은 네 파이어베이스 콘솔 설정 값으로 채워줘!
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "studio-j-cam.firebaseapp.com",
@@ -70,11 +78,24 @@
         let lastFrameData = null;
         let isDetected = false;
 
-        // 720p 화질 요청하되, 로컬 감지 연산 속도를 위해 캔버스는 작게 씀
+        // 🌟 강제 전체화면 기능 함수
+        function openFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) { /* 사파리/크롬 구버전 */
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE */
+                elem.msRequestFullscreen();
+            }
+            // 전체화면이 되면 안내 문구 숨기기
+            document.getElementById('fs-guide').style.opacity = '0';
+        }
+
         navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
             .then(stream => {
                 video.srcObject = stream;
-                setInterval(detectMotion, 300); // 0.3초마다 움직임 체크
+                setInterval(detectMotion, 300);
             })
             .catch(err => alert("카메라 권한이 필요합니다: " + err));
 
@@ -117,7 +138,6 @@
             const now = new Date();
             const timeString = now.toLocaleTimeString();
             
-            // 싱가포르 서버 DB에 정상 전송
             database.ref('last_detect').set(timeString);
             database.ref('logs').push({
                 event: "움직임 감지 (침입 발생 가능)",
