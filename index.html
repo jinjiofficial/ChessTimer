@@ -49,11 +49,11 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        // 🔴 중요: 네 파이어베이스 프로젝트 구성 정보로 변경해줘!
+        // 🔴 중요: YOUR_ 변수들은 네 파이어베이스 콘솔 설정 값으로 채워줘!
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "studio-j-cam.firebaseapp.com",
-            databaseURL: "https://studio-j-cam-default-rtdb.firebaseio.com",
+            databaseURL: "https://studio-j-cam-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "studio-j-cam",
             messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
             appId: "YOUR_APP_ID"
@@ -81,7 +81,6 @@
         function detectMotion() {
             if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-            // 캔버스 크기를 감지용 세팅으로 맞춤
             canvas.width = 160;
             canvas.height = 120;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -90,18 +89,16 @@
 
             if (lastFrameData) {
                 let changedPixels = 0;
-                // 픽셀 변화량 계산
                 for (let i = 0; i < frameData.length; i += 4) {
                     const rDiff = Math.abs(frameData[i] - lastFrameData[i]);
                     const gDiff = Math.abs(frameData[i+1] - lastFrameData[i+1]);
                     const bDiff = Math.abs(frameData[i+2] - lastFrameData[i+2]);
                     
-                    if (rDiff + gDiff + bDiff > 60) { // 픽셀 색상 차이 기준치
+                    if (rDiff + gDiff + bDiff > 60) { 
                         changedPixels++;
                     }
                 }
 
-                // 전체 픽셀 중 일정 비율 이상 변하면 움직임으로 인식
                 if (changedPixels > (canvas.width * canvas.height) * 0.08 && !isDetected) {
                     triggerWelcome();
                 }
@@ -113,23 +110,20 @@
             isDetected = true;
             console.log("로컬 움직임 감지됨!");
 
-            // 1. 화면 켜고 환영 문구 띄우기
             document.body.style.backgroundColor = "#121212";
             welcomeMessage.style.opacity = "1";
             welcomeMessage.style.transform = "scale(1)";
 
-            // 2. 파이어베이스에 단순 텍스트 로그 및 시간만 쏘기 (영상 X)
             const now = new Date();
             const timeString = now.toLocaleTimeString();
             
+            // 싱가포르 서버 DB에 정상 전송
             database.ref('last_detect').set(timeString);
-            // 로그 리스트에도 누적 기록 추가
             database.ref('logs').push({
                 event: "움직임 감지 (침입 발생 가능)",
                 time: now.toLocaleString()
             });
 
-            // 3초 후 다시 화면 어둡게 대기 상태로 전환
             setTimeout(() => {
                 document.body.style.backgroundColor = "#000000";
                 welcomeMessage.style.opacity = "0";
